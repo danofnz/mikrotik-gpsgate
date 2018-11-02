@@ -1,0 +1,49 @@
+# php
+:local server "domain_or_ip/gps.php"
+:local port "80"
+
+# get imei
+:global lteimei
+/interface lte info lte1 once do={:set $lteimei $("imei")}  
+
+# get gps data
+:global datetime
+:global lat
+:global lon
+:global alt
+:global spd
+:global bear
+:global val
+/system gps monitor once do={
+	:set $datetime $("date-and-time")
+	:set $lat $("latitude")
+	:set $lon $("longitude")
+	:set $alt $("altitude")
+	:set $spd $("speed")
+	:set $bear $("true-bearing")
+	:set $val $("valid")
+}
+
+# months array
+:local months ("jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec");
+# convert name of month to number
+:local month ([ :find $months ([:pick $datetime 0 3]) -1 ] + 1);
+:if ($month < 10) do={:set month ("0" . $month);}
+# manipulate date time
+:local date ([:pick $datetime 4 6] . $month . [:pick $datetime 9 11]);
+:local time ([:pick $datetime 12 14] . [:pick $datetime 15 17] . [:pick $datetime 18 20]);
+
+# send gps data to php
+tool fetch mode=http url="http://$server" port=$port http-method=post \
+http-data=("{ \
+\"imei\":\"" . $lteimei . "\", \
+\"lat\":\"" . $lat . "\", \
+\"lon\":\"" . $lon . "\", \
+\"alt\":\"" . $alt . "\", \
+\"spd\":\"" . $spd . "\", \
+\"bear\":\"" . $bear . "\", \
+\"date\":\"" . $date . "\", \
+\"time\":\"" . $time . "\", \
+\"val\":\"" . $val . "\" \
+}") \
+http-content-type="application/json"
